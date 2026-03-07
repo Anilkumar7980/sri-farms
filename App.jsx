@@ -1413,7 +1413,7 @@ function LoginPage({onLogin,lang,setLang}){
       const profile=await getProfile(authUser.id);
       setLang(profile.default_lang||"en");
       onLogin({...profile,email:authUser.email});
-    }catch(e){setErr("Login failed: please check console");}
+    }catch(e){setErr(e.message);}
     setLogging(false);
   };
   // Allow click-to-fill demo accounts
