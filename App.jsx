@@ -1470,7 +1470,7 @@ function LoginPage({onLogin,lang,setLang}){
           <p style={{fontSize:11,color:D.muted,fontWeight:700,marginBottom:12,textTransform:"uppercase",letterSpacing:"0.07em"}}>Demo Accounts — Click to Auto-Fill</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {DEMO_ACCOUNTS.map(usr=>(
-              <button key={usr.user} onClick={()=>fillDemo(usr)}} style={{padding:"10px 12px",borderRadius:12,border:`1px solid ${D.glassBorder}`,background:"rgba(255,255,255,0.04)",cursor:"pointer",textAlign:"left",transition:"all 0.15s"}}
+              <button key={usr.user} onClick={()=>fillDemo(usr)} style={{padding:"10px 12px",borderRadius:12,border:`1px solid ${D.glassBorder}`,background:"rgba(255,255,255,0.04)",cursor:"pointer",textAlign:"left",transition:"all 0.15s"}}
                 onMouseEnter={e=>{e.currentTarget.style.background="rgba(59,130,246,0.12)";e.currentTarget.style.borderColor="rgba(59,130,246,0.3)";}}
                 onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.borderColor=D.glassBorder;}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#fff"}}>{usr.icon} {usr.name}</div>
