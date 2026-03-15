@@ -946,7 +946,7 @@ function ShedsTab({sheds,setSheds,user,lang,batches}){
       </div>
     </Modal>}
 
-    {(showAdd||editShed)&&<Modal title={editShed?"Edit Shed":t.addShed} onClose={()=>{setShowAdd(false);setEditShed(null);setForm(blank);}} width={560} height={1000}>
+    {(showAdd||editShed)&&<Modal title={editShed?"Edit Shed":t.addShed} onClose={()=>{setShowAdd(false);setEditShed(null);setForm(blank);}} width={560} height={100}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <FInput label="Shed Name *" value={form.name} onChange={v=>setForm({...form,name:v})} required placeholder="e.g. Shed A1"/>
         <FInput label="Location / Village *" value={form.location} onChange={v=>setForm({...form,location:v})} required placeholder="e.g. Kuppam"/>
