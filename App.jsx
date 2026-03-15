@@ -2738,41 +2738,14 @@ function LoginPage({onLogin,lang,setLang}){
   const [loading,setLoading]=useState(false);
   const t=T[lang];
 
-  const tryLogin=async()=>{
+  const tryLogin=()=>{
     if(!u||!p)return setErr("Please enter username and password.");
     setLoading(true);setErr("");
-    // Try Supabase Auth first
-    if(supabase){
-      try{
-        const{data,error}=await supabase.auth.signInWithPassword({email:u,password:p});
-        if(data?.user&&!error){
-          // Get profile from Supabase
-          const{data:profile}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
-          const found={
-            user:u,
-            role:profile?.role||"owner",
-            lang:profile?.default_lang||"te",
-            name:profile?.name||"Farm Owner",
-            icon:profile?.icon||"👑",
-            supabaseUser:data.user
-          };
-          setLang(found.lang);
-          onLogin(found);
-          return;
-        }else if(error){
-          // Fall through to local check
-          console.log("Supabase auth error:",error.message);
-        }
-      }catch(e){
-        console.log("Supabase unavailable, trying local:",e.message);
-      }
-    }
-    // Fallback: local USERS array
     setTimeout(()=>{
       const found=USERS.find(x=>x.user===u&&x.pass===p);
       if(found){setLang(found.lang);onLogin(found);}
       else{setErr("Invalid email or password.");setLoading(false);}
-    },300);
+    },600);
   };
 
   return <div style={{minHeight:"100vh",background:"#0D1117",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px",fontFamily:"'Plus Jakarta Sans',sans-serif",position:"relative",overflow:"hidden"}}>
