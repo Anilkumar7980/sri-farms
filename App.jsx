@@ -58,10 +58,12 @@ html,body{height:100%;font-family:'Plus Jakarta Sans',sans-serif;background:#0D1
 .spin{animation:spin 1s linear infinite}
 .badge-pop{animation:badge-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards}
 @media(max-width:768px){.desktop-only{display:none!important}.mobile-only{display:flex!important}.sidebar-wrap{transform:translateX(-100%)!important}.sidebar-wrap.open{transform:translateX(0)!important}.main-wrap{margin-left:0!important;padding-bottom:72px}}
-@media(min-width:769px){.mobile-only{display:none!important}.mob-overlay{display:none!important}}
+@media(min-width:769px){.mobile-only{display:none!important}}
 .sidebar-wrap{transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.16,1,0.3,1)}
+.sidebar-wrap.open{transform:translateX(0)!important}
+.mob-overlay.open{display:block!important}
 .mobile-only{display:none}
-.mob-overlay{display:none}
+.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99}
 
 `;
 
@@ -2754,7 +2756,7 @@ function LoginPage({onLogin,lang,setLang}){
             {/* Username */}
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               <label style={{fontSize:10,fontWeight:700,color:"#7D8590",textTransform:"uppercase",letterSpacing:"0.1em"}}>{t.username}</label>
-              <input value={u} onChange={e=>setU(e.target.value)} placeholder="farm2025" autoComplete="username"
+              <input value={u} onChange={e=>setU(e.target.value)} placeholder="anilkumard369e@gmail.com" autoComplete="username"
                 style={{padding:"11px 14px",borderRadius:10,border:`1.5px solid ${u?"rgba(245,158,11,0.4)":"rgba(255,255,255,0.1)"}`,fontSize:14,color:"#E6EDF3",background:"rgba(255,255,255,0.04)",fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",transition:"border-color 0.2s"}}/>
             </div>
             {/* Password */}
