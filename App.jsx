@@ -106,7 +106,7 @@ const T = {
 ══════════════════════════════════════════════════════ */
 // Production: only farm owner login. Team members managed via TeamTab.
 const USERS = [
-  {user:"farm2025",pass:"farm2025",role:"owner",lang:"te",name:"Farm Owner",icon:"👑"},
+  {user:"anilkumard369e@gmail.com",pass:"farm2025",role:"owner",lang:"te",name:"Farm Owner",icon:"👑"},
 ];
 
 const TODAY = new Date();
