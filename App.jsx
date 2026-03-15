@@ -135,15 +135,14 @@ const STORE={
   },
   async set(k,v){
     const val=JSON.stringify(v);
-    // Save to localStorage (always works on Vercel)
-    try{localStorage.setItem(this._key(k),val);}catch{}
-    // Also try window.storage (Claude artifacts)
-    try{if(window.storage)await window.storage.set("sf5_"+k,val);}catch{}
-    // Save to Supabase if connected
+    // 1. Save to localStorage immediately (primary storage - always works)
+    try{localStorage.setItem(this._key(k),val);}catch(e){console.error("localStorage save failed:",e);}
+    // 2. Save to Supabase in background (don't await - don't block UI)
     if(supabase){
-      try{
-        await supabase.from("app_data").upsert({key:k,value:val,updated_at:new Date().toISOString()},{onConflict:"key"});
-      }catch{}
+      supabase.from("app_data")
+        .upsert({key:k,value:val,updated_at:new Date().toISOString()},{onConflict:"key"})
+        .then(()=>{})
+        .catch(()=>{});  // silent fail - localStorage already saved
     }
   },
   async loadFromSupabase(){
@@ -364,7 +363,7 @@ function FInput({label,value,onChange,type="text",placeholder,required,readOnly,
     {label&&<label style={{fontSize:11,fontWeight:700,color:D.muted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{label}{required&&<span style={{color:D.red}}> *</span>}</label>}
     <div style={{position:"relative"}}>
       <input type={type} value={value} onChange={e=>onChange&&onChange(e.target.value)} placeholder={placeholder} readOnly={readOnly} onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}
-        style={{width:"100%",padding:unit?"10px 44px 10px 14px":"10px 14px",borderRadius:10,border:`1.5px solid ${borderCol}`,fontSize:14,color:readOnly?"#64748B":D.text,background:readOnly?"rgba(255,255,255,0.02)":"rgba(255,255,255,0.05)",fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",transition:"border-color 0.18s, background 0.18s",backdropFilter:"blur(4px)"}}/>
+        style={{width:"100%",padding:unit?"10px 44px 10px 13px":"10px 13px",borderRadius:10,border:`1.5px solid ${borderCol}`,fontSize:13,color:readOnly?"#64748B":"#E6EDF3",background:readOnly?"#1C2430":"#1C2430",fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",transition:"border-color 0.18s"}}/>
       {unit&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:D.muted,fontWeight:500}}>{unit}</span>}
     </div>
   </div>;
@@ -373,7 +372,7 @@ function FInput({label,value,onChange,type="text",placeholder,required,readOnly,
 function FSelect({label,value,onChange,options,required}){
   return <div style={{display:"flex",flexDirection:"column",gap:6}}>
     {label&&<label style={{fontSize:11,fontWeight:700,color:D.muted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{label}{required&&<span style={{color:D.red}}> *</span>}</label>}
-    <select value={value} onChange={e=>onChange(e.target.value)} style={{padding:"10px 14px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.1)",fontSize:14,color:D.text,background:"rgba(255,255,255,0.05)",fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",cursor:"pointer",backdropFilter:"blur(4px)"}}>
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{padding:"10px 13px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.15)",fontSize:13,color:"#E6EDF3",background:"#1C2430",fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",cursor:"pointer"}}>
       {options.map(o=>typeof o==="string"?<option key={o} value={o} style={{background:"#161B22"}}>{o}</option>:<option key={o.value} value={o.value} style={{background:"#161B22"}}>{o.label}</option>)}
     </select>
   </div>;
@@ -383,13 +382,17 @@ function FSelect({label,value,onChange,options,required}){
    MODAL
 ══════════════════════════════════════════════════════ */
 function Modal({title,children,onClose,width=560}){
-  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:1000,display:"grid",placeItems:"center",padding:20,backdropFilter:"blur(8px)"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="fade-up" style={{background:"#161B22",border:`1px solid ${D.border}`,borderRadius:22,width:"100%",maxWidth:width,maxHeight:"90vh",overflow:"auto",padding:30,boxShadow:"0 25px 80px rgba(0,0,0,0.5)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-        <h3 style={{fontSize:18,fontWeight:700,color:D.text,fontFamily:"'Rajdhani',sans-serif"}}>{title}</h3>
-        <button onClick={onClose} style={{background:"rgba(255,255,255,0.08)",border:"none",cursor:"pointer",color:D.muted,padding:8,borderRadius:8,display:"grid",placeItems:"center"}}><X size={18}/></button>
+  return <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.8)",overflowY:"auto",padding:"16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className="fade-up" onClick={e=>e.stopPropagation()} style={{background:"#161B22",border:"1px solid rgba(255,255,255,0.12)",borderRadius:16,width:"100%",maxWidth:width,margin:"0 auto",boxShadow:"0 20px 60px rgba(0,0,0,0.7)"}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
+        <h3 style={{fontSize:17,fontWeight:700,color:"#E6EDF3",fontFamily:"'Rajdhani',sans-serif"}}>{title}</h3>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",cursor:"pointer",color:"#94A3B8",padding:7,borderRadius:8,display:"grid",placeItems:"center"}}><X size={15}/></button>
       </div>
-      {children}
+      {/* Content */}
+      <div style={{padding:"16px 18px"}}>
+        {children}
+      </div>
     </div>
   </div>;
 }
@@ -824,9 +827,16 @@ function ShedsTab({sheds,setSheds,user,lang,batches}){
   const [toast,setToast]=useState(null);
 
   const save=async()=>{
-    if(!form.name||!form.location||!form.supervisor)return;
-    const updated=editShed?sheds.map(s=>s.id===editShed.id?{...s,...form}:s):[...sheds,{...form,id:"shed_"+Date.now(),createdAt:new Date().toISOString().split("T")[0]}];
-    setSheds(updated);await STORE.set("sheds",updated);setShowAdd(false);setEditShed(null);setForm(blank);
+    if(!form.name){setToast({message:"Shed Name is required",type:"error"});return;}
+    if(!form.location){setToast({message:"Location/Village is required",type:"error"});return;}
+    if(!form.supervisor){setToast({message:"Supervisor Name is required",type:"error"});return;}
+    const updated=editShed
+      ?sheds.map(s=>s.id===editShed.id?{...s,...form}:s)
+      :[...sheds,{...form,id:"shed_"+Date.now(),createdAt:new Date().toISOString().split("T")[0]}];
+    setSheds(updated);
+    await STORE.set("sheds",updated);
+    setShowAdd(false);setEditShed(null);setForm(blank);
+    setToast({message:editShed?"Shed updated successfully!":"Shed added successfully!",type:"success"});
   };
   const deactivate=async(shed)=>{
     const u=sheds.map(s=>s.id===shed.id?{...s,active:false}:s);
@@ -936,23 +946,24 @@ function ShedsTab({sheds,setSheds,user,lang,batches}){
       </div>
     </Modal>}
 
-    {(showAdd||editShed)&&<Modal title={editShed?"Edit Shed":t.addShed} onClose={()=>{setShowAdd(false);setEditShed(null);setForm(blank);}} width={600}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        <FInput label="Shed Name" value={form.name} onChange={v=>setForm({...form,name:v})} required/>
-        <FInput label="Location/Village" value={form.location} onChange={v=>setForm({...form,location:v})} required/>
+    {(showAdd||editShed)&&<Modal title={editShed?"Edit Shed":t.addShed} onClose={()=>{setShowAdd(false);setEditShed(null);setForm(blank);}} width={560}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <FInput label="Shed Name *" value={form.name} onChange={v=>setForm({...form,name:v})} required placeholder="e.g. Shed A1"/>
+        <FInput label="Location / Village *" value={form.location} onChange={v=>setForm({...form,location:v})} required placeholder="e.g. Kuppam"/>
+        <FInput label="Supervisor Name *" value={form.supervisor} onChange={v=>setForm({...form,supervisor:v})} required placeholder="e.g. Ravi Kumar"/>
+        <FInput label="Supervisor Phone" value={form.supervisorPhone} onChange={v=>setForm({...form,supervisorPhone:v})} placeholder="9876543210"/>
         <FInput label="District" value={form.district} onChange={v=>setForm({...form,district:v})}/>
         <FInput label="State" value={form.state} onChange={v=>setForm({...form,state:v})}/>
-        <FInput label="Supervisor Name" value={form.supervisor} onChange={v=>setForm({...form,supervisor:v})} required/>
-        <FInput label="Supervisor Phone" value={form.supervisorPhone} onChange={v=>setForm({...form,supervisorPhone:v})}/>
-        <FInput label="Manager Name" value={form.manager} onChange={v=>setForm({...form,manager:v})}/>
-        <FInput label="Manager Phone" value={form.managerPhone} onChange={v=>setForm({...form,managerPhone:v})}/>
-        <FInput label="Shed Capacity" value={form.capacity} onChange={v=>setForm({...form,capacity:+v})} type="number"/>
-        <FInput label="Shed Area (sq ft)" value={form.area} onChange={v=>setForm({...form,area:v})}/>
+        <FInput label="Manager Name" value={form.manager} onChange={v=>setForm({...form,manager:v})} placeholder="Optional"/>
+        <FInput label="Manager Phone" value={form.managerPhone} onChange={v=>setForm({...form,managerPhone:v})} placeholder="Optional"/>
+        <FInput label="Capacity (birds)" value={form.capacity} onChange={v=>setForm({...form,capacity:+v})} type="number"/>
+        <FInput label="Area (sq ft)" value={form.area} onChange={v=>setForm({...form,area:v})} placeholder="Optional"/>
         <FInput label="GPS Coordinates" value={form.gps} onChange={v=>setForm({...form,gps:v})} placeholder="lat, lng (optional)" style={{gridColumn:"span 2"}}/>
       </div>
-      <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"flex-end"}}>
+      <p style={{fontSize:11,color:"#7D8590",marginTop:10}}>* Required fields</p>
+      <div style={{display:"flex",gap:10,marginTop:16,justifyContent:"flex-end"}}>
         <Btn variant="outline" onClick={()=>{setShowAdd(false);setEditShed(null);}}>{t.cancel}</Btn>
-        <Btn onClick={save}>{t.save}</Btn>
+        <Btn onClick={save} style={{minWidth:100,justifyContent:"center"}}>{t.save}</Btn>
       </div>
     </Modal>}
   </div>;
@@ -1185,12 +1196,12 @@ function ReportTab({sheds,batches,reports,setReports,setAlerts,alerts,user,lang}
             <div style={{gridColumn:"span 2"}}>
               <label style={{fontSize:11,fontWeight:700,color:D.muted,textTransform:"uppercase",letterSpacing:"0.07em",display:"block",marginBottom:6}}>Health Observation</label>
               <textarea value={form.health} onChange={e=>setForm({...form,health:e.target.value})} rows={2} placeholder="Normal / note any observations..."
-                style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.1)",fontSize:14,color:D.text,background:"rgba(255,255,255,0.05)",fontFamily:"'Plus Jakarta Sans',sans-serif",resize:"vertical",outline:"none",backdropFilter:"blur(4px)"}}/>
+                style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.15)",fontSize:13,color:"#E6EDF3",background:"#1C2430",fontFamily:"'Plus Jakarta Sans',sans-serif",resize:"vertical",outline:"none"}}/>
             </div>
             <div style={{gridColumn:"span 2"}}>
               <label style={{fontSize:11,fontWeight:700,color:D.muted,textTransform:"uppercase",letterSpacing:"0.07em",display:"block",marginBottom:6}}>Unusual Event</label>
               <textarea value={form.event} onChange={e=>setForm({...form,event:e.target.value})} rows={2} placeholder="Any unusual events..."
-                style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.1)",fontSize:14,color:D.text,background:"rgba(255,255,255,0.05)",fontFamily:"'Plus Jakarta Sans',sans-serif",resize:"vertical",outline:"none",backdropFilter:"blur(4px)"}}/>
+                style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.15)",fontSize:13,color:"#E6EDF3",background:"#1C2430",fontFamily:"'Plus Jakarta Sans',sans-serif",resize:"vertical",outline:"none"}}/>
             </div>
           </div>
           <div style={{marginTop:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1457,7 +1468,7 @@ function HistoryTab({reports,setReports,sheds,user,lang}){
       <div style={{position:"relative",flex:1,minWidth:200}}>
         <Search size={14} color={D.muted} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)"}}/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by date or supervisor..."
-          style={{width:"100%",padding:"9px 12px 9px 34px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.1)",fontSize:14,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",background:"rgba(255,255,255,0.05)",color:D.text,backdropFilter:"blur(4px)"}}/>
+          style={{width:"100%",padding:"9px 12px 9px 34px",borderRadius:10,border:"1.5px solid rgba(255,255,255,0.15)",fontSize:13,fontFamily:"'Plus Jakarta Sans',sans-serif",outline:"none",background:"#1C2430",color:"#E6EDF3"}}/>
       </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
         {[{id:"all",label:t.allSheds},...sheds.filter(s=>s.active).map(s=>({id:s.id,label:s.name}))].map(f=>(
@@ -2847,8 +2858,11 @@ export default function App(){
   useEffect(()=>{
     (async()=>{
       try{
-        // Try loading from Supabase first (syncs to localStorage too)
-        await STORE.loadFromSupabase();
+        // Try loading from Supabase (with 3s timeout so it doesn't block)
+        await Promise.race([
+          STORE.loadFromSupabase(),
+          new Promise(r=>setTimeout(r,3000))  // 3s timeout
+        ]);
         // Now load from localStorage (populated by Supabase or previous saves)
         const[s,b,r,a,cv,ph,vl,pl,bl]=await Promise.all([
           STORE.get("sheds",[]),STORE.get("batches",[]),STORE.get("reports",[]),
