@@ -106,7 +106,7 @@ const T = {
 /* ══════════════════════════════════════════════════════
    AUTH & SEED DATA
 ══════════════════════════════════════════════════════ */
-// Production: only farm owner login. Team members managed via TeamTab.
+// Production: Supabase Auth (with localStorage fallback for offline)
 const USERS = [
   {user:"anilkumard369e@gmail.com",pass:"farm@2025",role:"owner",lang:"te",name:"Farm Owner",icon:"👑"},
 ];
@@ -118,9 +118,51 @@ function expectedWeight(d){const W={1:45,3:80,5:130,7:185,10:330,14:560,18:900,2
 
 // No seed data — app starts clean
 
+// ── STORE: Supabase-backed with localStorage fallback ──────────────
 const STORE={
-  async get(k,fb){try{const r=await window.storage.get("sf5_"+k);return r?JSON.parse(r.value):fb;}catch{return fb;}},
-  async set(k,v){try{await window.storage.set("sf5_"+k,JSON.stringify(v));}catch{}}
+  _key(k){return"sf5_"+k;},
+  async get(k,fb){
+    // Try localStorage first (fast)
+    try{
+      const local=localStorage.getItem(this._key(k));
+      if(local!==null)return JSON.parse(local);
+    }catch{}
+    // Fallback to window.storage (Claude artifacts)
+    try{
+      if(window.storage){const r=await window.storage.get("sf5_"+k);if(r)return JSON.parse(r.value);}
+    }catch{}
+    return fb;
+  },
+  async set(k,v){
+    const val=JSON.stringify(v);
+    // Save to localStorage (always works on Vercel)
+    try{localStorage.setItem(this._key(k),val);}catch{}
+    // Also try window.storage (Claude artifacts)
+    try{if(window.storage)await window.storage.set("sf5_"+k,val);}catch{}
+    // Save to Supabase if connected
+    if(supabase){
+      try{
+        await supabase.from("app_data").upsert({key:k,value:val,updated_at:new Date().toISOString()},{onConflict:"key"});
+      }catch{}
+    }
+  },
+  async loadFromSupabase(){
+    if(!supabase)return {};
+    try{
+      const{data}=await supabase.from("app_data").select("key,value");
+      if(data){
+        const result={};
+        data.forEach(r=>{
+          try{
+            result[r.key]=JSON.parse(r.value);
+            localStorage.setItem(this._key(r.key),r.value);
+          }catch{}
+        });
+        return result;
+      }
+    }catch(e){console.log("Supabase load failed, using localStorage:",e.message);}
+    return {};
+  }
 };
 function HenLogo({size=52,animated=true,glowing=false}){
   const [imgErr,setImgErr]=useState(false);
@@ -2696,14 +2738,41 @@ function LoginPage({onLogin,lang,setLang}){
   const [loading,setLoading]=useState(false);
   const t=T[lang];
 
-  const tryLogin=()=>{
+  const tryLogin=async()=>{
     if(!u||!p)return setErr("Please enter username and password.");
     setLoading(true);setErr("");
+    // Try Supabase Auth first
+    if(supabase){
+      try{
+        const{data,error}=await supabase.auth.signInWithPassword({email:u,password:p});
+        if(data?.user&&!error){
+          // Get profile from Supabase
+          const{data:profile}=await supabase.from("profiles").select("*").eq("id",data.user.id).single();
+          const found={
+            user:u,
+            role:profile?.role||"owner",
+            lang:profile?.default_lang||"te",
+            name:profile?.name||"Farm Owner",
+            icon:profile?.icon||"👑",
+            supabaseUser:data.user
+          };
+          setLang(found.lang);
+          onLogin(found);
+          return;
+        }else if(error){
+          // Fall through to local check
+          console.log("Supabase auth error:",error.message);
+        }
+      }catch(e){
+        console.log("Supabase unavailable, trying local:",e.message);
+      }
+    }
+    // Fallback: local USERS array
     setTimeout(()=>{
       const found=USERS.find(x=>x.user===u&&x.pass===p);
       if(found){setLang(found.lang);onLogin(found);}
-      else{setErr("Invalid username or password.");setLoading(false);}
-    },600);
+      else{setErr("Invalid email or password.");setLoading(false);}
+    },300);
   };
 
   return <div style={{minHeight:"100vh",background:"#0D1117",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px",fontFamily:"'Plus Jakarta Sans',sans-serif",position:"relative",overflow:"hidden"}}>
@@ -2805,6 +2874,9 @@ export default function App(){
   useEffect(()=>{
     (async()=>{
       try{
+        // Try loading from Supabase first (syncs to localStorage too)
+        await STORE.loadFromSupabase();
+        // Now load from localStorage (populated by Supabase or previous saves)
         const[s,b,r,a,cv,ph,vl,pl,bl]=await Promise.all([
           STORE.get("sheds",[]),STORE.get("batches",[]),STORE.get("reports",[]),
           STORE.get("alerts",[]),STORE.get("cctv",[]),STORE.get("photos",[]),
@@ -2821,7 +2893,6 @@ export default function App(){
         setBills(Array.isArray(bl)?bl:[]);
       }catch(e){
         console.error("Storage load error:",e);
-        // Still continue with empty data - no get stuck
       }finally{
         setLoaded(true);
       }
